@@ -1,0 +1,43 @@
+#!/bin/sh
+
+check_command() {
+  if ! command -v "$1" > /dev/null 2>&1; then
+    echo "Error: $1 is not installed." >&2
+    exit 1
+  fi
+}
+
+if [ "$#" -lt 3 ]; then
+  echo "Usage: $0 [<src_lang>] [<dst_lang>] <text...>" >&2
+  echo 'The src_lang and dst_lang can also be supplied as environment variables LT_SRC_LANG and LT_DST_LANG' >&2
+  echo 'LT_INSTANCE can be supplied to set a LibreTranslate instance (default: https://libretranslate.com)' >&2
+  echo '' >&2
+  echo >&2
+  echo 'If less then the required number of args is provided, this usage text is printed.' >&2
+  exit 1
+fi
+
+check_command jq
+check_command curl
+
+LT_INSTANCE="${LT_INSTANCE:-https://libretranslate.com}"
+
+if [ -z "$LT_SRC_LANG" ]; then
+  src_lang="$1"
+  shift
+else
+  src_lang="$LT_SRC_LANG"
+fi
+if [ -z "$LT_DST_LANG" ]; then
+  dst_lang="$1"
+  shift
+else
+  dst_lang="$LT_DST_LANG"
+fi
+
+json_payload=$(jq -n --arg q "$*" --arg source "$src_lang" --arg target "$dst_lang" \
+                  '{q: $q, source: $source, target: $target}')
+
+exec curl -X POST "${LT_INSTANCE}/translate" \
+  -H "Content-Type: application/json" \
+  -d "${json_payload}"
